@@ -176,14 +176,17 @@ class DesignPreferences(QDialog):
         designPref["detailing"] = {}
         typeOfEdge = str(self.ui.combo_detailingEdgeType.currentText())
         designPref["detailing"]["typeof_edge"] = typeOfEdge
-        designPref["detailing"]["min_edgend_dist"] = float(1.7)
+        if typeOfEdge == "a - Sheared or hand flame cut":
+            designPref["detailing"]["min_edgend_dist"] = float(1.7)
+        else:
+            designPref["detailing"]["min_edgend_dist"] = float(1.5)
         designPref["detailing"]["gap"] = int(20)
 
         self.ui.combo_detailing_memebers.setCurrentIndex(0)
         designPref["detailing"]["is_env_corrosive"] = str(self.ui.combo_detailing_memebers.currentText())
 
         designPref["design"] = {}
-        designPref["design"]["design _method"] = str(self.ui.combo_design_method.currentText())
+        designPref["design"]["design_method"] = str(self.ui.combo_design_method.currentText())
         self.saved = False
 
         return designPref
@@ -1804,7 +1807,7 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     module_setup()
     ########################################
-    folder_path = "/home/deepa-c/Osdag_workspace"
+    folder_path = "F:\Osdag_workspace\\fin_plate"
     if not os.path.exists(folder_path):
         os.mkdir(folder_path, 0755)
     image_folder_path = os.path.join(folder_path, 'images_html')

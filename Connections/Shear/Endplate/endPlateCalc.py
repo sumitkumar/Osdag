@@ -98,14 +98,14 @@ def end_plate_t_min(beam_depth, grade_bolt, dia):
 
 
 # BOLT: Determination of factored design force of HSFG bolts Vsf = Vnsf / Ymf = uf * ne * Kh * Fo where Vnsf: The nominal shear capacity of bolt
-def HSFG_bolt_shear(uf, dia, n, fu):
-    Anb = math.pi * dia * dia * 0.25 * 0.78  # threaded area(Anb) = 0.78 x shank area
-    Fo = Anb * 0.7 * fu 
-    Kh = 1  # Assuming fastners in Clearence hole
-    Ymf = 1.25  # Ymf = 1.25 if Slip resistance is designed at ultimate load
-    Vsf = uf * n * Kh * Fo / (Ymf * 1000)
-    Vsf = round(Vsf, 3)
-    return Vsf
+# def HSFG_bolt_shear(uf, dia, n, fu):
+#     Anb = math.pi * dia * dia * 0.25 * 0.78  # threaded area(Anb) = 0.78 x shank area
+#     Fo = Anb * 0.7 * fu
+#     Kh = 1  # Assuming fastners in Clearence hole
+#     Ymf = 1.25  # Ymf = 1.25 if Slip resistance is designed at ultimate load
+#     Vsf = uf * n * Kh * Fo / (Ymf * 1000)
+#     Vsf = round(Vsf, 3)
+#     return Vsf
 
 # ############ CRITICAL BOLT SHEAR CAPACITY ###################
 
@@ -185,6 +185,9 @@ def end_connection(ui_obj):
     bolt_dia = int(ui_obj['Bolt']['Diameter (mm)'])
     bolt_type = ui_obj["Bolt"]["Type"]
     bolt_grade = float(ui_obj['Bolt']['Grade'])
+
+    mu_f = float(ui_obj["bolt"]["slip_factor"])
+    gamma_mw = float(ui_obj["weld"]["safety_factor"])
               
     end_plate_t = float(ui_obj['Plate']['Thickness (mm)'])
     end_plate_w = str(ui_obj['Plate']['Width (mm)'])
@@ -285,8 +288,8 @@ def end_connection(ui_obj):
     max_spacing = int(min(100 + 4 * end_plate_t, 200))  # clause 10.2.3.3 is800
 
     # ############ END AND EDGE DISTANCES ###################
-    if ui_obj["detailing"]["typeof_edge"] == "a - Shear or hand flame cut":
-        min_end_dist = int(1.7 * (dia_hole))
+    if ui_obj["detailing"]["typeof_edge"] == "a - Sheared or hand flame cut":
+        min_end_dist = int(float(1.7 * (dia_hole)))
     else:
         min_end_dist = int(1.5 * (dia_hole))
     min_edge_dist = min_end_dist
@@ -303,14 +306,12 @@ def end_connection(ui_obj):
 
     if bolt_type == 'HSFG':
         # TODO Set parameters based on updated design preferences input from GUI
-        mu_f = 0.55
+        muf = mu_f
         n_e = 1 # number of effective interfaces offering frictional resistance
         bolt_hole_type = 1 # 1 - standard hole, 0 - oversize hole
-        bolt_shear_capacity = ConnectionCalculations.bolt_shear_hsfg(bolt_dia, bolt_fu, mu_f, n_e, bolt_hole_type)
+        bolt_shear_capacity = ConnectionCalculations.bolt_shear_hsfg(bolt_dia, bolt_fu, muf, n_e, bolt_hole_type)
         bolt_bearing_capacity = 'N/A'
         bolt_capacity = bolt_shear_capacity
-        # TODO GUI - disable bearing capacity in output doc
-        # TODO update design report
 
     elif bolt_type == "Bearing Bolt" :
         bolt_shear_capacity = black_bolt_shear(bolt_dia, bolt_planes, bolt_fu)
@@ -648,7 +649,7 @@ def end_connection(ui_obj):
     weld_l = end_plate_l - 2 * weld_t
     Vy1 = (shear_load) / float(2 * weld_l)
     Vy1 = round(Vy1, 3)
-    weld_strength = 0.7 * weld_t * weld_fu / (math.sqrt(3) * 1250)
+    weld_strength = 0.7 * weld_t * weld_fu / (math.sqrt(3) * 1000 * gamma_mw)
     weld_strength = round(weld_strength, 3);
     if Vy1 > weld_strength:
         design_check = False
@@ -656,10 +657,44 @@ def end_connection(ui_obj):
         logger.warning(": Weld Strength should be greater than %2.2f KN/mm" % (weld_strength))
         logger.info(": Increase the Weld Size")
 
+    ############## Check for minimum weld thickness: Table 21; IS 800 ###########
+    # Here t_thicker indicates thickness of thicker part
+
+    if connectivity == "Column web-Beam web":
+        t_thicker = max(column_w_t.real, end_plate_t.real)
+    elif connectivity == "Column flange-Beam web":
+        t_thicker = max(column_f_t.real, end_plate_t.real)
+    else:
+        t_thicker = max(column_w_t.real, end_plate_t.real)
+
+    if float(t_thicker) > 0 or float(t_thicker) <= 10:
+        weld_t_min = int(3)
+    elif float(t_thicker) > 10 or float(t_thicker) <= 20:
+        weld_t_min = int(5)
+    elif float(t_thicker) >= 20 or float(t_thicker) <= 32:
+        weld_t_min = int(6)
+    else:
+        weld_t_min = int(10)
+
+
+    weld_t_req = weld_t_min
+
+    # if weld_t_req != int(weld_t_req):
+    #     weld_t_req = int(weld_t_req) + 1
+    # else:
+    #     weld_t_req = weld_t_req
+
+    if weld_t < weld_t_req:
+        design_check = False
+        logger.error(": Weld thickness is not sufficient [cl. 10.5.2.3 and Table 21; IS 800:2007]")
+        logger.warning(": Minimum weld thickness required is %2.2f mm " % (weld_t_req))
+        logger.info(": Increase the weld thickness or length of weld/Endplate")
+
+
     # End of calculation
     output_obj = {}
     output_obj['Bolt'] = {}
-    output_obj['Bolt']['status'] = True
+    output_obj['Bolt']['status'] = design_check
     output_obj['Bolt']['shearcapacity'] = bolt_shear_capacity
     output_obj['Bolt']['bearingcapacity'] = bolt_bearing_capacity
     output_obj['Bolt']['boltcapacity'] = bolt_capacity
@@ -682,6 +717,8 @@ def end_connection(ui_obj):
     output_obj['Weld']['weldshear'] = Vy1
     output_obj['Weld']['weldlength'] = weld_l
     output_obj['Weld']['weldstrength'] = weld_strength
+    output_obj['Weld']['thickness'] = weld_t_req
+    output_obj['Weld']['thicknessprovided'] = weld_t
 
     output_obj['Plate'] = {}
     output_obj['Plate']['height'] = float(end_plate_l)
@@ -691,15 +728,17 @@ def end_connection(ui_obj):
     output_obj['Plate']['blockshear'] = float(Tdb)
     output_obj['Plate']['Sectional Gauge'] = float(sectional_gauge)
 
-    if bolts_required == 0:
-        for k in output_obj.keys():
-            for key in output_obj[k].keys():
-                output_obj[k][key] = ""
 
-    if design_check is False:
-        for k in output_obj.keys():
-            for key in output_obj[k].keys():
-                output_obj[k][key] = ""
+
+    # if bolts_required == 0:
+    #     for k in output_obj.keys():
+    #         for key in output_obj[k].keys():
+    #             output_obj[k][key] = ""
+    #
+    # if design_check is False:
+    #     for k in output_obj.keys():
+    #         for key in output_obj[k].keys():
+    #             output_obj[k][key] = ""
 
 #     output_obj = {}
     if output_obj['Bolt']['status'] is True:

@@ -95,8 +95,8 @@ def save_html(outObj, uiObj, dictBeamData, dictColData, reportsummary, filename,
     fu_overwrite = str(float(uiObj["weld"]["fu_overwrite"]))
 
     typeof_edge = str(uiObj["detailing"]["typeof_edge"])
-    min_edgend_dist = str(float(uiObj["detailing"]["min_edgend_dist"]))
-    detail_gap = str(float(uiObj["detailing"]["gap"]))
+    min_edgend_dist = str(float(uiObj["detailing"]["min_edgend_dist"])) # factor: 1.7 or 1.5 depending on type of edge, IS 800- Cl 10.2.4.2
+    gap = str(float(uiObj["detailing"]["gap"]))
 
     design_method = str(uiObj["design"]["design_method"])
 
@@ -122,7 +122,7 @@ def save_html(outObj, uiObj, dictBeamData, dictColData, reportsummary, filename,
     end = str(int(round(outObj['Bolt']['enddist'], 1)))
     weld_strength = str(round(float(outObj['Weld']['weldstrength'] / 1000), 3))
     moment_demand = str(outObj['Plate']['externalmoment'])
-    gap = '20'
+    # gap = '20'
     beam_tw = str(float(dictBeamData["tw"]))
 
     bolt_fu = str(outObj['Bolt']['bolt_fu'])
@@ -596,7 +596,7 @@ def save_html(outObj, uiObj, dictBeamData, dictColData, reportsummary, filename,
     rstr += t('td class="detail2"') + row[2] + t('/td')
     rstr += t('/tr')
 
-    row = [0, "Gap (mm)", detail_gap]
+    row = [0, "Gap (mm)", gap]
     rstr += t('tr')
     rstr += t('td clospan="2" class="detail2"') + space(row[0]) + row[1] + t('/td')
     rstr += t('td class="detail2"') + row[2] + t('/td')
@@ -807,23 +807,21 @@ def save_html(outObj, uiObj, dictBeamData, dictColData, reportsummary, filename,
     rstr += t('/tr')
 
     rstr += t('tr')
-    # row =[0,"End distance (mm)","&#8805;1.7* 22 = 37.4,&#8804;12*8.9 = 106.9 <br> [cl. 10.2.4]","50"]
-    minEnd = str(1.7 * float(dia_hole))
-    maxEnd = str(12 * float(beam_tw))
-    row = [0, "End distance (mm)", " &#8805; 1.7*" + dia_hole + " = " + minEnd + ", &#8804; 12*" + beam_tw + " = " + maxEnd + " <br> [cl. 10.2.4]", end,
+    minEnd = str(int(float(min_edgend_dist) * float(dia_hole)))
+    maxEnd = str(float(12 * float(beam_tw)))
+    row = [0, "End distance (mm)"," &#8805; " + min_edgend_dist + "*" + dia_hole + " = " + minEnd + ", &#8804; 12*" + beam_tw + " = " + maxEnd + " <br> [cl. 10.2.4]",end,
            "  <p align=left style=color:green><b>Pass</b></p>"]
     rstr += t('td class="detail1"') + space(row[0]) + row[1] + t('/td')
     rstr += t('td class="detail2"') + space(row[0]) + row[2] + t('/td')
     rstr += t('td class="detail2"') + space(row[0]) + row[3] + t('/td')
     rstr += t('td class="detail1"') + space(row[0]) + row[4] + t('/td')
     rstr += t('/tr')
-
     rstr += t('tr')
-    # row =[0,"Edge distance (mm)","&#8805; 1.7* 22 = 37.4,&#8804;12*8.9 = 106.9<br> [cl. 10.2.4]","50"," <p align=right style=color:green><b>Pass</b></p>"]
-    minEdge = str(1.7 * float(dia_hole))
-    maxEdge = str(12 * float(beam_tw))
-    row = [0, "Edge distance (mm)", " &#8805; 1.7*" + dia_hole + " = " + minEdge + ", &#8804; 12*" + beam_tw + " = " + maxEdge + "<br> [cl. 10.2.4]", edge,
-           " <p align=left style=color:green><b>Pass</b></p>"]
+
+    minEdge = str(int(float(min_edgend_dist) * float(dia_hole)))
+    maxEdge = str(float(12 * float(beam_tw)))
+    row = [0, "Edge distance (mm)"," &#8805; " + min_edgend_dist + "*" + dia_hole + " = " + minEdge + ", &#8804; 12*" + beam_tw + " = " + maxEdge + " <br> [cl. 10.2.4]",
+               end,"  <p align=left style=color:green><b>Pass</b></p>"]
     rstr += t('td class="detail1"') + space(row[0]) + row[1] + t('/td')
     rstr += t('td class="detail2"') + space(row[0]) + row[2] + t('/td')
     rstr += t('td class="detail2"') + space(row[0]) + row[3] + t('/td')
@@ -905,7 +903,7 @@ def save_html(outObj, uiObj, dictBeamData, dictColData, reportsummary, filename,
     rstr += t('tr')
     # row =[0,"Effective weld length (mm)","","300 - 2*6 = 288"]
     effWeldLen = str(int(float(plateLength) - (2 * float(weld_Thick))))
-    row = [0, "Effective weld length (mm)", "", plateLength + "-2*" + weld_Thick + " = " + effWeldLen, ""]
+    row = [0, "Effective weld length on each side (mm)", "", plateLength + "-2*" + weld_Thick + " = " + effWeldLen, ""]
     rstr += t('td class="detail1"') + space(row[0]) + row[1] + t('/td')
     rstr += t('td class="detail2"') + space(row[0]) + row[2] + t('/td')
     rstr += t('td class="detail2"') + space(row[0]) + row[3] + t('/td')
